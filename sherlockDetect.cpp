@@ -10,29 +10,12 @@ Sherlock::Sherlock(int numNtoken, int numHash)
     set_Ignore();
     set_Zerobits();
     set_Ntoken(numNtoken);
-    set_Hash(numHash);
+    Hash.set_numHash(numHash);
 }
 void Sherlock::usage(void)
 {
-	fprintf(stderr, "%s: find similar files\n", Progname);
-
-	fprintf(stderr, "usage: %s", Progname);
-	fprintf(stderr, " [options] file1 file2 ...\n");
-
-	fprintf(stderr, "options:");
-	fprintf(stderr, " [-t threshold%%]");
-	fprintf(stderr, " [-z zerobits]");
-	fprintf(stderr, " [-n chainlength]");
-	fprintf(stderr, " [-o outfile]");
-	fprintf(stderr, "\n");
-
-	fprintf(stderr, "defaults:");
-	fprintf(stderr, " threshold=20%%");
-	fprintf(stderr, " zerobits=3");
-	fprintf(stderr, " chainlength=4");
-	fprintf(stderr, " outfile=the screen");
-	fprintf(stderr, "\n");
-
+    Manual m;
+    m.printInfo(Progname);
 	exit(2);
 }
 
@@ -110,7 +93,7 @@ char * Sherlock::read_word(FILE *f, int *length, char *ignore, char *punct)
     return word;
 }
 
-int ulcmp(const void *p1, const void *p2)
+int cmp(const void *p1, const void *p2)
 {
 	unsigned long v1, v2;
 
@@ -123,69 +106,16 @@ int ulcmp(const void *p1, const void *p2)
 	else
 		return 1;
 }
-unsigned long Sherlock::ChoseHash(char *tok[], int numHash)
+unsigned long Sherlock::ChoseHash(char *tok[])
 {
-    switch(numHash)
-    {
-        case 1:
-            hash1(tok);
-            break;
-        case 2:
-            hash2(tok);
-            break;
-        case 3:
-            hash3(tok);
-            break;
-        default:
-            cout<<"Don't have this number, please try again."<<endl;
-            cin>>numHash;
-            set_Hash(numHash);
-            ChoseHash(tok, numHash);
-            break;
-    }
-}
-unsigned long Sherlock::hash1(char *tok[])
-{
-	unsigned long h;
-	unsigned char *s;
-	int i;
-
-	h = 0;
-	for (i=0; i < Ntoken; i++)
-		for (s = (unsigned char*)tok[i]; *s; s++)
-			h = h*31 + *s;
-	return h;
-}
-unsigned long Sherlock::hash2(char *tok[])
-{
-    int p = 16777619;
-    int hash = (int)2166136261L;
-    unsigned char *s;
-    for(int i = 0;i < Ntoken; i++)
-        for(s = (unsigned char*)tok[i]; *s; s++)
-        hash = (hash ^ *s) * p;
-    hash += hash << 13;
-    hash ^= hash >> 7;
-    hash += hash << 3;
-    hash ^= hash >> 17;
-    hash += hash << 5;
-    return hash;
-}
-unsigned long Sherlock::hash3(char *tok[])
-{
-    unsigned long hash = 0;
-    unsigned char *s;
-    for(int i = 0;i < Ntoken; i++)
-        for(s = (unsigned char*)tok[i]; *s; s++)
-             hash = *s + (hash << 6) + (hash << 16) - hash;
-    return hash;
+    unsigned long value = 0;
+    value = Hash.ChoseHash(tok, Ntoken);
+    return value;
 }
 
 void Sherlock::init_token_array(void)
 {
 	int i;
-
-	/* create global array of char* and initialise all to NULL */
 	token = (char**)malloc(Ntoken * sizeof(char*));
 	for (i=0; i < Ntoken; i++)
 		token[i] = NULL;
@@ -200,7 +130,7 @@ Sig * Sherlock::signature(FILE *f)
 	Sig *sig;
 
 	/* start loading hash values, after we have Ntoken of them */
-	v = NULL;
+	v  = NULL;
 	na = 0;
 	nv = 0;
 	ntoken = 0;
@@ -220,7 +150,7 @@ Sig * Sherlock::signature(FILE *f)
 			continue;
 
 		/* hash the array of words */
-		h = ChoseHash(token, Hash);
+		h = ChoseHash(token);
 		if ((h & zeromask) != 0)
 			continue;
 
@@ -237,11 +167,11 @@ Sig * Sherlock::signature(FILE *f)
 	}
 
 	/* sort the array of hash values for speed */
-	qsort(v, nv, sizeof(v[0]), ulcmp);
+	qsort(v, nv, sizeof(v[0]), cmp);
 
 	/* allocate and return the Sig structure for this file */
 	sig = (Sig*)malloc(sizeof(Sig));
-	sig->nval = nv;
+	sig->Nval = nv;
 	sig->val = v;
 	return sig;
 }
@@ -254,17 +184,17 @@ int Sherlock::compare(Sig *s0, Sig *s1)
 	i0 = 0;
 	i1 = 0;
 	nboth = 0;
-	while (i0 < s0->nval && i1 < s1->nval)
+	while (i0 < s0->Nval && i1 < s1->Nval)
     {
 		if (s0->val[i0] == s1->val[i1])
         {
 			v = s0->val[i0];
-			while (i0 < s0->nval && v == s0->val[i0])
+			while (i0 < s0->Nval && v == s0->val[i0])
             {
 				i0++;
 				nboth++;
 			}
-			while (i1 < s1->nval && v == s1->val[i1])
+			while (i1 < s1->Nval && v == s1->val[i1])
             {
 				i1++;
 				nboth++;
@@ -277,22 +207,22 @@ int Sherlock::compare(Sig *s0, Sig *s1)
 			i1++;
 	}
 
-	if (s0->nval + s1->nval == 0)
+	if (s0->Nval + s1->Nval == 0)
 		return 0;	/* ignore if both are empty files */
 
-	if (s0->nval + s1->nval == nboth)
+	if (s0->Nval + s1->Nval == nboth)
 		return 100;	/* perfect match if all hash codes match */
 
 	nsimilar = nboth / 2;
-	return 100 * nsimilar / (s0->nval + s1->nval - nsimilar);
+	return 100 * nsimilar / (s0->Nval + s1->Nval - nsimilar);
 }
 
 void Sherlock::startDetect(int argc, char *argv[])
 {
-	FILE *f;
-	int i, j, nfiles, start, percent;
-	char *s, *outname;
-	Sig **sig;
+	FILE       *f;
+	int        i, j, nfiles, start, percent;
+	char       *s, *outname;
+	Sig        **sig;
 	Outfile = stdout;
 	outname = NULL;
 
