@@ -14,6 +14,7 @@ using namespace std;
 class HashFactory
 {
     vector<string> info;
+    int numHash;                              //the label of hash method
 public:
     HashFactory()
     {
@@ -23,6 +24,14 @@ public:
     }
     void printInfo();
     void addInfo(string _info);
+
+    unsigned long ChoseHash(char *tok[],  int Ntoken);
+    unsigned long hash1(char *tok[], int Ntoken);
+	unsigned long hash2(char *tok[], int Ntoken);
+	unsigned long hash3(char *tok[], int Ntoken);
+
+    void set_numHash(int num) {numHash = num;}
+    int  get_numHash() {return numHash;}
 };
 
 #endif //HASHFACTORY_H
